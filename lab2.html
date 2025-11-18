@@ -1,0 +1,401 @@
+from IPython.display import HTML
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Prompt Template Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc;
+        }
+        /* Custom scrollbar for template content */
+        .prompt-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .prompt-content::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+        .prompt-content::-webkit-scrollbar-track {
+            background-color: #f1f5f9;
+        }
+        .template-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .template-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="min-h-screen flex flex-col">
+
+    <header class="bg-indigo-700 text-white shadow-lg p-4 sticky top-0 z-10">
+        <h1 class="text-3xl font-bold text-center">Reusable Coding Prompt Library 🤖</h1>
+        <p class="text-center text-indigo-200 mt-1">Efficiently retrieve structured templates for common LLM coding tasks.</p>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+
+        <aside class="w-64 p-6 bg-white shadow-xl flex-shrink-0 overflow-y-auto hidden lg:block">
+            <h2 class="text-xl font-semibold mb-4 text-indigo-800 border-b pb-2">Filter Library</h2>
+
+            <div class="mb-6">
+                <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Search Templates</label>
+                <input type="text" id="search" placeholder="Search title or description..."
+                        class="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-md font-medium text-gray-700 mb-3">Categories</h3>
+                <div id="category-filters" class="space-y-2">
+                    </div>
+                <button onclick="window.resetFilters()" class="mt-4 w-full text-sm py-2 px-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition duration-150">
+                    Clear Filters
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6 overflow-y-auto">
+
+            <div class="lg:hidden mb-6">
+                <input type="text" id="mobile-search" placeholder="Search templates..."
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-3">
+                <select id="mobile-category-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="All">Filter by Category (All)</option>
+                    </select>
+            </div>
+
+            <div id="template-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div class="text-center p-8 text-gray-500" id="no-results" style="display: none;">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No Results Found</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Try adjusting your search or category filters.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</div>
+
+<script>
+    // --- 1. PROMPT TEMPLATE DATA STRUCTURE (The Library) ---
+    const promptTemplates = [
+        // CODE GENERATION
+        {
+            id: 1,
+            title: "Generate Utility Function",
+            category: "Code Generation",
+            complexity: "Easy",
+            description: "Generates a complete, well-commented function based purely on a description (Zero-Shot).",
+            template: "Write a complete, well-commented Python function named 'calculate_bmi' that takes 'weight_kg' and 'height_m' as arguments. It must include input validation for non-numeric or negative values, raising a ValueError if invalid.",
+            type: "Zero-Shot",
+            language: "Python"
+        },
+        {
+            id: 2,
+            title: "Generate React Component",
+            category: "Code Generation",
+            complexity: "Medium",
+            description: "Generates a specific frontend component with state management and styling.",
+            template: "Create a functional React component named 'TaskTracker' in a single file. It should use Tailwind CSS for a modern card design. Include a useState hook to manage an array of tasks and input fields to add new tasks. The tasks should be displayed as a list with a button to mark them as complete.",
+            type: "Zero-Shot",
+            language: "React/JS"
+        },
+        {
+            id: 3,
+            title: "Generate SQL Query for Schema",
+            category: "Database & Backend",
+            complexity: "Easy",
+            description: "Generates a complex SQL query given the table schema.",
+            template: "Given the table schema: \n\nCREATE TABLE Orders (order_id INT, customer_id INT, order_date DATE, total_amount DECIMAL, status VARCHAR);\nCREATE TABLE Customers (customer_id INT, name VARCHAR, city VARCHAR);\n\nWrite an SQL query to find the names of the top 5 customers (name and city) who have the highest total order amount across all their 'Completed' orders in the last 6 months.",
+            type: "Few-Shot (Schema provided)",
+            language: "SQL"
+        },
+
+        // DEBUGGING & ERROR RESOLUTION
+        {
+            id: 4,
+            title: "Debugging a Stack Trace",
+            category: "Debugging",
+            complexity: "Medium",
+            description: "Analyzes a stack trace and attempts to identify the root cause and suggest a fix.",
+            template: "Analyze the following Python traceback and surrounding code snippet. Explain the root cause of the error (IndexError) and provide the complete, corrected code block.\n\n[CODE SNIPPET HERE]\n\n[STACK TRACE HERE]",
+            type: "One-Shot (Example Structure)",
+            language: "Various"
+        },
+        {
+            id: 5,
+            title: "Resolve CORS Error (Front & Back)",
+            category: "Debugging",
+            complexity: "Medium",
+            description: "Identifies and resolves common Cross-Origin Resource Sharing (CORS) configuration issues.",
+            template: "I am getting a CORS error when my React frontend (running on localhost:3000) tries to call my Express.js backend (running on localhost:5000/api/data). Provide the required middleware setup for the Express server to correctly allow requests from the React application.",
+            type: "Zero-Shot (Context provided)",
+            language: "Node.js/Express"
+        },
+
+        // REFACTORING & OPTIMIZATION
+        {
+            id: 6,
+            title: "Refactor for Readability",
+            category: "Refactoring & Optimization",
+            complexity: "Medium",
+            description: "Simplifies complex logic while maintaining functionality.",
+            template: "Refactor the following JavaScript function to be more concise and readable, utilizing modern ES6 features (like destructuring, arrow functions, and map/filter/reduce) where appropriate. Preserve the original logic and add JSDoc comments.\n\nfunction processData(items) { /* ... large, complex logic ... */ }",
+            type: "One-Shot (Input code required)",
+            language: "JavaScript/TypeScript"
+        },
+        {
+            id: 7,
+            title: "Optimize Performance",
+            category: "Refactoring & Optimization",
+            complexity: "Hard",
+            description: "Identifies performance bottlenecks and provides an optimized alternative.",
+            template: "The following Go function iterates over a large dataset and is causing significant CPU load. Analyze the code, specifically looking for opportunities to improve time complexity (O(n) vs O(n^2)) or utilize Goroutines for concurrent processing. Provide the optimized version and explain the improvements.\n\n[GO CODE HERE]",
+            type: "Few-Shot (Specific goals defined)",
+            language: "Go"
+        },
+
+        // DOCUMENTATION & EXPLANATION
+        {
+            id: 8,
+            title: "Generate README File",
+            category: "Documentation",
+            complexity: "Easy",
+            description: "Creates a professional Markdown README based on a project description.",
+            template: "Generate a comprehensive, professional README.md file for a project titled 'SecureChat'. It is a real-time messaging application built with Python (Flask) for the backend, PostgreSQL for the database, and React for the frontend. Include sections for Features, Installation (with dependencies), API Endpoints, and Contribution Guidelines.",
+            type: "Zero-Shot",
+            language: "Markdown"
+        },
+        {
+            id: 9,
+            title: "Explain Complex Concept (Expert)",
+            category: "Documentation",
+            complexity: "Medium",
+            description: "Provides a clear explanation of a difficult technical topic for a specific audience.",
+            template: "Explain the concept of 'Eventual Consistency' in distributed databases (like Cassandra) to a mid-level software engineer. Use an analogy to illustrate the concept, describe its trade-offs (e.g., CAP Theorem), and list two real-world use cases where it is acceptable.",
+            type: "Few-Shot (Audience and structure defined)",
+            language: "Technical Writing"
+        }
+    ];
+
+    // --- 2. APPLICATION STATE & LOGIC ---
+
+    let currentCategory = "All";
+    let currentSearch = "";
+
+    /**
+     * @function copyPrompt
+     * @description Copies the prompt text to the clipboard using the modern Clipboard API.
+     * @param {number} id - The ID of the prompt template to copy.
+     */
+    window.copyPrompt = async function(id) {
+        const template = promptTemplates.find(t => t.id === id);
+        if (!template) return;
+
+        const button = document.getElementById(`copy-btn-${id}`);
+        const originalText = button.innerHTML;
+
+        try {
+            await navigator.clipboard.writeText(template.template);
+
+            // Success feedback
+            button.innerHTML = '<span class="flex items-center"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!</span>';
+            button.classList.add('bg-green-500', 'hover:bg-green-600');
+            button.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            // Fallback for systems that don't support the Clipboard API (though rare now)
+            // You could include the old execCommand fallback here if necessary, but omitting for modern code.
+        }
+
+        // Reset button state after a delay
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('bg-green-500', 'hover:bg-green-600');
+            button.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+        }, 2000);
+    }
+
+    // Main rendering function
+    function renderTemplates() {
+        const listContainer = document.getElementById('template-list');
+        let noResults = document.getElementById('no-results');
+
+        const filteredTemplates = promptTemplates.filter(template => {
+            const matchesCategory = currentCategory === "All" || template.category === currentCategory;
+            const searchTerm = currentSearch.toLowerCase();
+            const matchesSearch = !searchTerm ||
+                                 template.title.toLowerCase().includes(searchTerm) ||
+                                 template.description.toLowerCase().includes(searchTerm) ||
+                                 template.category.toLowerCase().includes(searchTerm) ||
+                                 template.language.toLowerCase().includes(searchTerm);
+            return matchesCategory && matchesSearch;
+        });
+
+        listContainer.innerHTML = '';
+
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'no-results';
+            noResults.className = 'text-center p-8 text-gray-500';
+            noResults.style.display = 'none';
+            noResults.innerHTML = `
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No Results Found</h3>
+                <p class="mt-1 text-sm text-gray-500">Try adjusting your search or category filters.</p>
+            `;
+            listContainer.appendChild(noResults);
+        }
+
+        noResults.style.display = filteredTemplates.length === 0 ? 'block' : 'none';
+
+        filteredTemplates.forEach(template => {
+            const complexityColor = {
+                'Easy': 'bg-green-100 text-green-800',
+                'Medium': 'bg-yellow-100 text-yellow-800',
+                'Hard': 'bg-red-100 text-red-800'
+            }[template.complexity] || 'bg-gray-100 text-gray-800';
+
+            const card = document.createElement('div');
+            card.className = 'template-card bg-white p-6 rounded-xl shadow-lg flex flex-col justify-between border border-gray-100';
+            card.innerHTML = `
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xl font-bold text-indigo-800">${template.title}</h3>
+                        <span class="text-xs font-semibold px-3 py-1 rounded-full ${complexityColor}">${template.complexity}</span>
+                    </div>
+
+                    <div class="space-x-2 mb-4">
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">${template.category}</span>
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">${template.type}</span>
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">${template.language}</span>
+                    </div>
+
+                    <p class="text-sm text-gray-600 mb-4">${template.description}</p>
+
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Template:</label>
+                    <pre class="prompt-content bg-gray-50 border border-gray-200 p-3 rounded-md text-sm whitespace-pre-wrap max-h-40 overflow-y-auto text-gray-800"><code>${template.template}</code></pre>
+                </div>
+
+                <button id="copy-btn-${template.id}" onclick="window.copyPrompt(${template.id})"
+                        class="mt-4 w-full flex items-center justify-center space-x-2 py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5h4m-4 0a2 2 0 012-2h4a2 2 0 012 2m-8 0v8m0-8h.01"></path></svg>
+                    Copy Prompt Text
+                </button>
+            `;
+            listContainer.appendChild(card);
+        });
+    }
+
+    // --- 3. FILTERING AND INITIALIZATION ---
+
+    /**
+     * @function filterByCategory
+     * @description Sets the active category filter and re-renders templates.
+     * @param {string} category - The category to filter by ("All" to show all).
+     */
+    window.filterByCategory = function(category) {
+        currentCategory = category;
+        const buttons = document.querySelectorAll('#category-filters button');
+        buttons.forEach(btn => {
+            // Use 'All' button's data-category for active check
+            if (btn.dataset.category === category) {
+                btn.classList.add('bg-indigo-500', 'text-white');
+                btn.classList.remove('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+            } else {
+                btn.classList.remove('bg-indigo-500', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+            }
+        });
+        document.getElementById('mobile-category-select').value = category;
+        renderTemplates();
+    }
+
+    /**
+     * @function resetFilters
+     * @description Clears all search and category filters and re-renders.
+     */
+    window.resetFilters = function() {
+        currentCategory = "All";
+        currentSearch = "";
+        document.getElementById('search').value = "";
+        document.getElementById('mobile-search').value = "";
+
+        // Manually trigger the filterByCategory('All') logic to reset button styles
+        window.filterByCategory("All"); 
+    }
+
+    function initFilters() {
+        const categories = [...new Set(promptTemplates.map(t => t.category))].sort();
+        const filterContainer = document.getElementById('category-filters');
+        const mobileSelect = document.getElementById('mobile-category-select');
+
+        // Add 'All' button (initially active)
+        filterContainer.innerHTML = `
+            <button data-category="All" onclick="window.filterByCategory('All')"
+                    class="w-full text-left py-2 px-3 rounded-md transition duration-150 bg-indigo-500 text-white font-medium">
+                All (${promptTemplates.length})
+            </button>
+        `;
+
+        categories.forEach(category => {
+            const count = promptTemplates.filter(t => t.category === category).length;
+            const buttonHtml = `
+                <button data-category="${category}" onclick="window.filterByCategory('${category}')"
+                        class="w-full text-left py-2 px-3 rounded-md transition duration-150 bg-gray-100 text-gray-800 hover:bg-gray-200">
+                    ${category} (${count})
+                </button>
+            `;
+            filterContainer.insertAdjacentHTML('beforeend', buttonHtml);
+
+            // Populate mobile select
+            mobileSelect.insertAdjacentHTML('beforeend', `<option value="${category}">${category} (${count})</option>`);
+        });
+
+        // Search event listeners
+        document.getElementById('search').addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            document.getElementById('mobile-search').value = currentSearch;
+            renderTemplates();
+        });
+
+        document.getElementById('mobile-search').addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            document.getElementById('search').value = currentSearch;
+            renderTemplates();
+        });
+
+        // Mobile category listener
+        document.getElementById('mobile-category-select').addEventListener('change', (e) => {
+            window.filterByCategory(e.target.value);
+        });
+    }
+
+    // Initialize the application on load
+    window.onload = function() {
+        initFilters();
+        renderTemplates();
+    };
+</script>
+
+</body>
+</html>
+"""
+
+HTML(html_content)
